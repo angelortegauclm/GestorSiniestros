@@ -1,35 +1,35 @@
-# Sistema de GestiÛn de Siniestros Serverless en AWS
+# Sistema de Gesti√≥n de Siniestros Serverless en AWS
 
-Este proyecto implementa un sistema de gestiÛn de siniestros de vehÌculos utilizando una arquitectura serverless basada en Amazon Web Services (AWS). El sistema permite a los usuarios registrar siniestros, consultar el estado de sus Ûrdenes y recibir autom·ticamente la factura generada al finalizar el proceso.
+Este proyecto implementa un sistema de gesti√≥n de siniestros de veh√≠culos utilizando una arquitectura serverless basada en Amazon Web Services (AWS). El sistema permite a los usuarios registrar siniestros, consultar el estado de sus √≥rdenes y recibir autom√°ticamente la factura generada al finalizar el proceso.
 
-TecnologÌas y Servicios
+### Tecnolog√≠as y Servicios
 
-Frontend: Amazon S3 para contenido est·tico y Amazon CloudFront como CDN.
+- Frontend: Amazon S3 para contenido est√°tico y Amazon CloudFront como CDN.
 
-Backend: Tres microservicios implementados con AWS Lambda, cada uno con su propia base de datos Amazon RDS.
+- Backend: Tres microservicios implementados con AWS Lambda, cada uno con su propia base de datos Amazon RDS.
 
-ComunicaciÛn: Amazon SQS para el intercambio asÌncrono de mensajes entre microservicios.
+- Comunicaci√≥n: Amazon SQS para el intercambio as√≠ncrono de mensajes entre microservicios.
 
-Notificaciones: Lambda que detecta documentos en S3 y envÌa correos electrÛnicos a los usuarios.
+- Notificaciones: Lambda que detecta documentos en S3 y env√≠a correos electr√≥nicos a los usuarios.
 
-Funcionalidad
+### Funcionalidad
 
-Registro de siniestros a travÈs del frontend.
+- Registro de siniestros a trav√©s del frontend.
 
-CreaciÛn y almacenamiento de Ûrdenes en el microservicio principal (Orden).
+- Creaci√≥n y almacenamiento de √≥rdenes en el microservicio principal (Orden).
 
-C·lculo del coste de reparaciÛn en un microservicio independiente.
+- C√°lculo del coste de reparaci√≥n en un microservicio independiente.
 
-GeneraciÛn de facturas cuando se cumplen ciertas condiciones, almacenadas en S3.
+- Generaci√≥n de facturas cuando se cumplen ciertas condiciones, almacenadas en S3.
 
-NotificaciÛn autom·tica al usuario vÌa correo electrÛnico cuando la factura est· disponible.
+- Notificaci√≥n autom√°tica al usuario v√≠a correo electr√≥nico cuando la factura est√° disponible.
 
-CaracterÌsticas
+### Caracter√≠sticas
 
-Arquitectura modular y escalable.
+- Arquitectura modular y escalable.
 
-ComunicaciÛn desacoplada entre microservicios.
+- Comunicaci√≥n desacoplada entre microservicios.
 
-Alta disponibilidad y tolerancia a fallos.
+- Alta disponibilidad y tolerancia a fallos.
 
-Procesamiento completamente serverless, reduciendo costos de infraestructura.
+- Procesamiento completamente serverless, reduciendo costos de infraestructura.
