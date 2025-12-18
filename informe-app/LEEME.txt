@@ -1,0 +1,18 @@
+Creamos el bucket : 
+aws s3 mb s3://mi-bucket-sam-deploy-jmrg1234 --region us-east-1
+
+Compilamos:
+sam build --use-container
+
+Desplegamos: 
+ sam deploy \  
+  --stack-name informe-app \                                         
+  --s3-bucket mi-bucket-sam-deploy-jmrg1234 \
+  --region us-east-1 \   
+  --capabilities CAPABILITY_IAM
+
+Probamos:
+curl -X POST \
+  https://u7ui2dtp0d.execute-api.us-east-1.amazonaws.com/Prod/hello \
+  -H "Content-Type: application/json" \
+  -d '{"nombre": "Juan"}'

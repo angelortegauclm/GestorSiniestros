@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  informe-app
+  Sample SAM Template for informe-app
+
+Globals:
+  Function:
+    Timeout: 3
+    Architectures:
+      - x86_64
+
+Resources:
+  # Lambda que recibe la API
+  HelloWorldFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: hello_world/
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      # Poner la ID ACOUNT
+      Role: arn:aws:iam::102228968337:role/LabRole
+      Events:
+        HelloWorld:
+          Type: Api
+          Properties:
+            Path: /hello
+            Method: post
+
+  # Lambda que genera el PDF
+  PdfFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: pdf_lambda/
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      Role: arn:aws:iam::102228968337:role/LabRole
+      Events:
+        PdfEvent:
+          Type: EventBridgeRule
+          Properties:
+            Pattern:
+              source:
+                - app.informes
+              detail-type:
+                - InformeSolicitado
+
+Outputs:
+  HelloWorldApi:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/Prod/hello"
+
+  HelloWorldFunctionArn:
+    Description: "Hello World Lambda ARN"
+    Value: !GetAtt HelloWorldFunction.Arn
+
+  PdfFunctionArn:
+    Description: "PDF Lambda ARN"
+    Value: !GetAtt PdfFunction.Arn
