@@ -1,0 +1,48 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Microservicio de Cálculo de Costes (Modo Directo - Sin SQS)
+
+Parameters:
+  LabRoleArn:
+    Type: String
+    Description: ARN del LabRole
+
+Resources:
+  # ----------------------------------------------------
+  # 1. BUCKET
+  # ----------------------------------------------------
+  BucketClaimsManager:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      Tags:
+        - Key: Project
+          Value: GestorSiniestros
+
+  # ----------------------------------------------------
+  # 2. LAMBDA (Sin trigger SQS)
+  # ----------------------------------------------------
+  CostCalculationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: cost-service.lambda_handler
+      Runtime: python3.12
+      CodeUri: backend/src/
+      Role: !Ref LabRoleArn
+      Timeout: 10
+      Environment:
+        Variables:
+          # Pasamos el nombre generado dinámicamente
+          INVOICE_BUCKET_NAME: !Ref BucketClaimsManager
+      Policies:
+        # Solo permiso para escribir en SU bucket
+        - S3WritePolicy:
+            BucketName: !Ref BucketClaimsManager
+
+Outputs:
+  BucketOutput:
+    Description: "Nombre del bucket generado"
+    Value: !Ref BucketClaimsManager
+  LambdaName:
+    Description: "Nombre de la funcion para invocarla"
+    Value: !Ref CostCalculationFunction
