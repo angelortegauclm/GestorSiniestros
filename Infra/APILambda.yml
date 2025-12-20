@@ -1,0 +1,109 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Minimal RDS + Lambda + SQS usando VPC por defecto
+
+Parameters:
+  DBUser:
+    Type: String
+    Default: postgres
+  DBPassword:
+    Type: String
+    NoEcho: true
+
+Globals:
+  Function:
+    Runtime: python3.13
+    Timeout: 30
+    MemorySize: 128
+
+Resources:
+
+  # -------------------------
+  # Security Group único
+  # -------------------------
+  SharedSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group compartido para Lambda y RDS
+      VpcId: vpc-0141dcb7a4512e40a   
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 0.0.0.0/0   
+
+  # -------------------------
+  # Subnet Group para RDS (subnets por defecto)
+  # -------------------------
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnets por defecto
+      SubnetIds:
+        - subnet-04c28f9cda7573812    
+        - subnet-061d480df1e7ab1f9    
+
+  # -------------------------
+  # RDS PostgreSQL
+  # -------------------------
+  PostgresDB:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      Engine: postgres
+      EngineVersion: "17.7"
+      DBInstanceClass: db.t3.micro
+      AllocatedStorage: 20
+      MasterUsername: !Ref DBUser
+      MasterUserPassword: !Ref DBPassword
+      DBName: clase
+      PubliclyAccessible: true
+      VPCSecurityGroups:
+        - !Ref SharedSecurityGroup
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      BackupRetentionPeriod: 0
+
+  # -------------------------
+  # SQS
+  # -------------------------
+  EventQueue:
+    Type: AWS::SQS::Queue
+
+  # -------------------------
+  # Lambda que publica en SQS
+  # -------------------------
+  PublishLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_publish/
+      Handler: app.handler
+      Environment:
+        Variables:
+          QUEUE_URL: !Ref EventQueue
+      Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt EventQueue.QueueName
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref SharedSecurityGroup
+        SubnetIds:
+          - subnet-04c28f9cda7573812
+          - subnet-061d480df1e7ab1f9
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /procesar
+            Method: post
+
+Outputs:
+  ApiUrl:
+    Description: URL de la API
+    Value: !Sub https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/procesar
+
+  DBEndpoint:
+    Description: Endpoint de PostgreSQL
+    Value: !GetAtt PostgresDB.Endpoint.Address
+
+  QueueUrl:
+    Description: URL de la cola SQS
+    Value: !Ref EventQueue
