@@ -417,18 +417,12 @@ FodyWeavers.xsd
 *.msm
 *.msp
 
-
-
-
-
+.aws-sam/
+samconfig.toml
 
 # ======================================
 # AÑADIDO POR LUIS (PYTHON & AWS SAM)
 # ======================================
-
-# Configuración de despliegue de SAM 
-# Esto contiene tu ID de cuenta y paths locales. NO SUBIR.
-samconfig.toml
 
 # Entornos virtuales de Python 
 venv/
@@ -442,3 +436,6 @@ dist/
 
 # Jupyter Notebooks (si usaras)
 .ipynb_checkpoints
+
+
+

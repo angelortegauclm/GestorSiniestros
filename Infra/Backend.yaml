@@ -1,0 +1,97 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Backend deployment para proyecto de clase (Lambdas vacías)
+
+Parameters:
+  DBUsername:
+    Type: String
+    Default: admingestor
+  DBPassword:
+    Type: String
+    NoEcho: true
+  S3BucketPDFs:
+    Type: String
+    Default: bucket-pdfs
+
+Resources:
+
+  # Base de datos RDS PostgreSQL
+  BackendDB:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBName: backenddb
+      Engine: postgres
+      EngineVersion: "18.1"
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword: !Ref DBPassword
+      DBInstanceClass: db.t3.micro
+      AllocatedStorage: 20
+      PubliclyAccessible: false
+
+  # Colas SQS
+  Queue1:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: queue-1
+
+  Queue2:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: queue-2
+
+  # Lambda 1 (vacía) con API Gateway
+  Lambda1:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: Lambda1
+      Runtime: python3.12
+      Handler: index.lambda_handler
+      InlineCode: |
+        def lambda_handler(event, context):
+            pass
+      Role: arn:aws:iam::851725537191:role/LabRole
+      Events:
+        CrearPost:
+          Type: Api
+          Properties:
+            Path: /crear
+            Method: post
+        ConsultarGet:
+          Type: Api
+          Properties:
+            Path: /consultar
+            Method: get
+
+  # Lambda 2 (vacía) con trigger SQS1
+  BackendCalculos:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: BackendCalculos
+      Runtime: python3.12
+      Handler: index.lambda_handler
+      InlineCode: |
+        def lambda_handler(event, context):
+            pass
+      Role: arn:aws:iam::851725537191:role/LabRole
+      Events:
+        QueueTrigger:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt Queue1.Arn
+
+  # Lambda 3 (vacía) con trigger SQS2
+  BackendGeneracionDocumentos:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: BackendDocumentos
+      Runtime: python3.12
+      Handler: index.lambda_handler
+      InlineCode: |
+        def lambda_handler(event, context):
+            pass
+      Role: arn:aws:iam::851725537191:role/LabRole
+      Events:
+        QueueTrigger:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt Queue2.Arn

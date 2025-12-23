@@ -1,0 +1,76 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Stack Serverless encargado de recibir facturas en PDF y notificar automáticamente al cliente vía correo electrónico.
+
+Parameters:
+  EmailAddress:
+    Type: String
+    Description: Dirección de correo electrónico para recibir notificaciones de SNS.
+  LabRoleArn:
+    Type: String
+    Description: ARN del LabRole existente de IAM que se usará para la ejecución de la función Lambda.
+
+Resources:
+  # ----------------------------------------------------
+  # 1. Bucket S3 de Almacenamiento de las Facturas
+  # ----------------------------------------------------
+  FacturasBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: facturas-gestorsiniestros
+      AccessControl: Private
+      Tags:
+        - Key: Project
+          Value: GestorSiniestros
+
+  # ----------------------------------------------------
+  # 2. Tema SNS para la Notificación de las Facturas
+  # ----------------------------------------------------
+  FacturaNotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: Notificaciones-GestorSiniestros
+      DisplayName: Notificacion Factura Final
+
+  # ----------------------------------------------------
+  # 3. Suscripción al Tema SNS
+  # ----------------------------------------------------
+  FacturaEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: email
+      Endpoint: !Ref EmailAddress
+      TopicArn: !Ref FacturaNotificationTopic
+
+  # ----------------------------------------------------
+  # 4. Función Lambda de Notificación
+  # ----------------------------------------------------
+  NotificacionFacturaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: EmailFunction.lambda_handler 
+      Runtime: python3.12
+      CodeUri: backend/src/
+      MemorySize: 128
+      Timeout: 10
+
+      Role: !Ref LabRoleArn
+      
+      Environment:
+        Variables:
+          SNS_TOPIC_ARN: !Ref FacturaNotificationTopic 
+            
+      # ----------------------------------------------------
+      # 5. Trigger
+      # ----------------------------------------------------
+      Events:
+        FacturaSubida:
+          Type: S3
+          Properties:
+            Bucket: !Ref FacturasBucket
+            Events: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: suffix
+                    Value: .pdf
