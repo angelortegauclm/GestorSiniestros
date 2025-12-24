@@ -419,3 +419,23 @@ FodyWeavers.xsd
 
 .aws-sam/
 samconfig.toml
+
+# ======================================
+# AÑADIDO POR LUIS (PYTHON & AWS SAM)
+# ======================================
+
+# Entornos virtuales de Python 
+venv/
+.venv/
+env/
+
+# Archivos de distribución de Python
+build/
+dist/
+*.egg-info/
+
+# Jupyter Notebooks (si usaras)
+.ipynb_checkpoints
+
+
+
