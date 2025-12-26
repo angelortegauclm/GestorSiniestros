@@ -21,8 +21,8 @@ Resources:
     Properties:
       DBName: backenddb
       Engine: postgres
-      #EngineVersion: "18.1"
-      EngineVersion: "16.3"
+      EngineVersion: "18.1"
+      #EngineVersion: "16.3"
       MasterUsername: !Ref DBUsername
       MasterUserPassword: !Ref DBPassword
       DBInstanceClass: db.t3.micro
@@ -51,6 +51,9 @@ Resources:
         def lambda_handler(event, context):
             pass
       #Role: arn:aws:iam::851725537191:role/LabRole
+      Environment:
+        Variables:
+          QUEUE_URL: !Ref Queue1
       Events:
         CrearPost:
           Type: Api
@@ -81,6 +84,7 @@ Resources:
           # DB_NAME: backenddb
           # DB_USER: !Ref DBUsername
           # DB_PASSWORD: !Ref DBPassword
+          QUEUE_1_URL: !Ref Queue1 
           QUEUE_2_URL: !Ref Queue2
       #Role: arn:aws:iam::851725537191:role/LabRole
       Events:
@@ -101,6 +105,9 @@ Resources:
         def lambda_handler(event, context):
             pass
       #Role: arn:aws:iam::851725537191:role/LabRole
+      Environment:
+        Variables:
+          QUEUE_URL: !Ref Queue1
       Events:
         QueueTrigger:
           Type: SQS
