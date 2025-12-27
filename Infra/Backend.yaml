@@ -9,25 +9,25 @@ Parameters:
   DBPassword:
     Type: String
     NoEcho: true
-  S3BucketPDFs:
+  LabRoleArn:
     Type: String
-    Default: bucket-pdfs
+    Description: ARN del LabRole existente de IAM que se usará para las funciones Lambdas.
 
 Resources:
-
+  
   # Base de datos RDS PostgreSQL
-  BackendDB:
-    Type: AWS::RDS::DBInstance
-    Properties:
-      DBName: backenddb
-      Engine: postgres
-      #EngineVersion: "18.1"
-      EngineVersion: "16.3"
-      MasterUsername: !Ref DBUsername
-      MasterUserPassword: !Ref DBPassword
-      DBInstanceClass: db.t3.micro
-      AllocatedStorage: 20
-      PubliclyAccessible: false
+  #BackendDB:
+  #  Type: AWS::RDS::DBInstance
+  #  Properties:
+  #    DBName: backenddb
+  #    Engine: postgres
+  #    #EngineVersion: "18.1"
+  #    EngineVersion: "16.3"
+  #    MasterUsername: !Ref DBUsername
+  #    MasterUserPassword: !Ref DBPassword
+  #    DBInstanceClass: db.t3.micro
+  #    AllocatedStorage: 20
+  #    PubliclyAccessible: false
 
   # Colas SQS
   Queue1:
@@ -50,7 +50,7 @@ Resources:
       InlineCode: |
         def lambda_handler(event, context):
             pass
-      #Role: arn:aws:iam::851725537191:role/LabRole
+      Role: !Ref LabRoleArn
       Events:
         CrearPost:
           Type: Api
@@ -82,7 +82,7 @@ Resources:
           # DB_USER: !Ref DBUsername
           # DB_PASSWORD: !Ref DBPassword
           QUEUE_2_URL: !Ref Queue2
-      #Role: arn:aws:iam::851725537191:role/LabRole
+      Role: !Ref LabRoleArn
       Events:
         QueueTrigger:
           Type: SQS
@@ -90,17 +90,25 @@ Resources:
             Queue: !GetAtt Queue1.Arn
             BatchSize: 1               # Procesa los mensajes de uno en uno para evitar errores
 
-  # Lambda 3 (vacía) con trigger SQS2
+  # Lambda 3 con trigger SQS2
   BackendGeneracionDocumentos:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: BackendDocumentos
       Runtime: python3.12
-      Handler: index.lambda_handler
-      InlineCode: |
-        def lambda_handler(event, context):
-            pass
-      #Role: arn:aws:iam::851725537191:role/LabRole
+      CodeUri: ../src/backend/
+      Handler: lambda3.lambda_handler
+      Role: !Ref LabRoleArn
+      Environment:                  
+        Variables:
+          BUCKET_NAME: !Sub "facturas-gestorsiniestros-${AWS::AccountId}"
+          #DB_HOST: !GetAtt BackendDB.Endpoint.Address
+          #DB_NAME: backenddb
+          #DB_USER: !Ref DBUsername
+          #DB_PASSWORD: !Ref DBPassword
+      Policies:
+        - S3WritePolicy:
+            BucketName: !Sub "facturas-gestorsiniestros-${AWS::AccountId}"
       Events:
         QueueTrigger:
           Type: SQS
