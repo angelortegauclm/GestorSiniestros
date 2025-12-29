@@ -17,7 +17,7 @@ Resources:
   FacturasBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: facturas-gestorsiniestros
+      BucketName: !Sub "facturas-gestorsiniestros-${AWS::AccountId}"
       AccessControl: Private
       Tags:
         - Key: Project
@@ -30,7 +30,7 @@ Resources:
     Type: AWS::SNS::Topic
     Properties:
       TopicName: Notificaciones-GestorSiniestros
-      DisplayName: Notificacion Factura Final
+      DisplayName: Gestion Siniestros
 
   # ----------------------------------------------------
   # 3. Suscripción al Tema SNS
@@ -48,14 +48,13 @@ Resources:
   NotificacionFacturaFunction:
     Type: AWS::Serverless::Function
     Properties:
+      FunctionName: NotificadorFacturas
       Handler: EmailFunction.lambda_handler 
       Runtime: python3.12
-      CodeUri: backend/src/
+      CodeUri: ../src/Notification/
       MemorySize: 128
       Timeout: 10
-
       Role: !Ref LabRoleArn
-      
       Environment:
         Variables:
           SNS_TOPIC_ARN: !Ref FacturaNotificationTopic 
