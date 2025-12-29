@@ -85,6 +85,7 @@ def lambda_handler(event, context):
             # try:
             #     conn = psycopg2.connect(
             #         host=DB_HOST,
+            #         port=DB_PORT,
             #         database=DB_NAME,
             #         user=DB_USER,
             #         password=DB_PASS

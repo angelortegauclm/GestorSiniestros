@@ -6,6 +6,7 @@ import boto3
 # Configuración
 QUEUE_URL = os.environ.get("QUEUE_URL")
 DB_HOST = os.environ.get("DB_HOST")
+DB_PORT = int(os.environ.get("DB_PORT"))
 DB_NAME = os.environ.get("DB_NAME", "clase")
 DB_USER = os.environ.get("DB_USER", "postgres")
 DB_PASSWORD = os.environ.get("DB_PASSWORD", "")
@@ -26,6 +27,7 @@ def lambda_handler(event, context):
     try:
         conn = psycopg2.connect(
             host=DB_HOST,
+            port=DB_PORT,
             database=DB_NAME,
             user=DB_USER,
             password=DB_PASSWORD

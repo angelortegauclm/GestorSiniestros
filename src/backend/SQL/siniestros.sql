@@ -1,3 +1,5 @@
+CREATE USER admingestor WITH PASSWORD 'admingestor';
+
 CREATE TABLE siniestros (
     id_siniestro SERIAL PRIMARY KEY,
     nombre VARCHAR(255) NOT NULL,
@@ -13,7 +15,8 @@ CREATE TABLE siniestros (
     taller VARCHAR(100),
     mano_obra DECIMAL(10,2),
     piezas DECIMAL(10,2),
-    estado_reparacion VARCHAR(50) DEFAULT 'Pendiente de estimación'
+    estado_reparacion VARCHAR(50) DEFAULT 'Pendiente de estimación',
+    url_documento VARCHAR(255)
 );
 
 INSERT INTO siniestros (
@@ -21,4 +24,3 @@ INSERT INTO siniestros (
 )
 VALUES
 ('Juan', '48259263L', 'angel@mail.com', '4859NNF', 'toyota', 'avensis', 1996, 'basica', 20.0, 10.0, 'taller', 20.1, 0.0, 'pendiente');
-

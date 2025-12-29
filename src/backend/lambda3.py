@@ -11,6 +11,7 @@ DB_HOST = os.environ.get('DB_HOST')
 DB_NAME = os.environ.get('DB_NAME')
 DB_USER = os.environ.get('DB_USER')
 DB_PASS = os.environ.get('DB_PASSWORD')
+DB_PORT = int(os.environ.get("DB_PORT"))
 
 def lambda_handler(event, context):
     print("--- INICIANDO GENERACIÓN DE FACTURA ---")
@@ -79,7 +80,8 @@ def lambda_handler(event, context):
             try:
                 conn = psycopg2.connect(
                     host=DB_HOST, database=DB_NAME, 
-                    user=DB_USER, password=DB_PASS
+                    user=DB_USER, password=DB_PASS,
+                    port=DB_PORT
                 )
                 cur = conn.cursor()
                 
