@@ -1,4 +1,4 @@
-CREATE USER admingestor WITH PASSWORD 'admingestor';
+-- CREATE USER admingestor WITH PASSWORD 'admingestor';
 
 CREATE TABLE siniestros (
     id_siniestro SERIAL PRIMARY KEY,
@@ -22,8 +22,8 @@ CREATE TABLE siniestros (
     pago_cliente DECIMAL(10,2)
 );
 
-INSERT INTO siniestros (
-	nombre, dni, email, matricula, marca, modelo, anio, informacion_poliza, limite, franquicia, taller, mano_obra, piezas, estado_reparacion
-)
-VALUES
-('Juan', '2343454D', 'angel@mail.com', '4859NNF', 'toyota', 'avensis', 1996, 'basica', 20.0, 10.0, 'taller', 20.1, 0.0, 'pendiente');
+-- INSERT INTO siniestros (
+-- 	nombre, dni, email, matricula, marca, modelo, anio, informacion_poliza, limite, franquicia, taller, mano_obra, piezas, estado_reparacion
+-- )
+-- VALUES
+-- ('Juan', '2343454D', 'angel@mail.com', '4859NNF', 'toyota', 'avensis', 1996, 'basica', 20.0, 10.0, 'taller', 20.1, 0.0, 'pendiente');

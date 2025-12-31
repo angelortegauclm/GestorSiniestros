@@ -41,23 +41,22 @@ Resources:
       QueueName: queue-2
 
   # Lambda 1 (vacía) con API Gateway
-  Lambda1:
+  backendAPI:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: Lambda1
+      FunctionName: backendAPI
       Runtime: python3.12
       Handler: index.lambda_handler
-      CodeUri: ../src/backend/lambda1.py
-      Role: LabRoleArn
+      CodeUri: ../src/backend/API
+      Role: !Ref LabRoleArn
       Environment:
         Variables:
           QUEUE_URL: !Ref Queue1
           DB_HOST: !GetAtt BackendDB.Endpoint.Address
-          DB_PORT: !GetAtt BackendDB.Endpoint.Port
+          DB_PORT: !Sub "${BackendDB.Endpoint.Port}"
           DB_NAME: postgres
           DB_USER: !Ref DBUsername
           DB_PASSWORD: !Ref DBPassword
-
       Events:
         CrearPost:
           Type: Api
@@ -77,7 +76,7 @@ Resources:
       FunctionName: BackendCalculos
       Runtime: python3.12
       Handler: lambda2.lambda_handler
-      CodeUri: ../src/backend/lambda2.py
+      CodeUri: ../src/backend/Calculos
       Policies:                        # permisos para escribir en la siguiente cola
         - SQSSendMessagePolicy:
             #QueueName: !GetAtt Queue2.QueueName
@@ -85,7 +84,7 @@ Resources:
       Environment:                  
         Variables:
           DB_HOST: !GetAtt BackendDB.Endpoint.Address
-          DB_PORT: !GetAtt BackendDB.Endpoint.Port
+          DB_PORT: !Sub "${BackendDB.Endpoint.Port}"
           DB_NAME: postgres
           DB_USER: !Ref DBUsername
           DB_PASSWORD: !Ref DBPassword
@@ -105,14 +104,14 @@ Resources:
     Properties:
       FunctionName: BackendDocumentos
       Runtime: python3.12
-      CodeUri: ../src/backend/lambda3.py
+      CodeUri: ../src/backend/Documentos
       Handler: lambda3.lambda_handler
       Role: !Ref LabRoleArn
       Environment:                  
         Variables:
           BUCKET_NAME: !Sub "facturas-gestorsiniestros-${AWS::AccountId}"
           DB_HOST: !GetAtt BackendDB.Endpoint.Address
-          DB_PORT: !GetAtt BackendDB.Endpoint.Port
+          DB_PORT: !Sub "${BackendDB.Endpoint.Port}"
           DB_NAME: postgres
           DB_USER: !Ref DBUsername
           DB_PASSWORD: !Ref DBPassword

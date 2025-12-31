@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-     const API_URL = "URL_DE_API_GATEWAY"; 
+     const API_BASE = "https://k2f3ps7hjl.execute-api.us-east-1.amazonaws.com/Prod/"; 
 
     const form = document.getElementById('formRegistro');
     const btnBuscar = document.getElementById('btnBuscar');
@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             try {
                 // LLAMADA FETCH POST
-                const response = await fetch(API_URL, {
+                const response = await fetch(`${API_BASE}/crear`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             // LLAMADA FETCH GET (Enviamos el parámetro de búsqueda en la URL)
-            const response = await fetch(`${API_URL}?search=${encodeURIComponent(busqueda)}`);
+            const response = await fetch(`${API_BASE}/consultar?search=${encodeURIComponent(busqueda)}`);
             const data = await response.json();
 
             if (response.ok) {
