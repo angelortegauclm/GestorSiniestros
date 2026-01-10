@@ -14,6 +14,17 @@ id_siniestro = None
 
 sqs = boto3.client("sqs")
 
+def build_response(status_code, body):
+    return {
+        "statusCode": status_code,
+        "headers": {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Content-Type,Authorization",
+            "Access-Control-Allow-Methods": "GET,POST,OPTIONS"
+        },
+        "body": json.dumps(body)
+    }
+
 def lambda_handler(event, context):
     method = event.get("httpMethod", "")
 
@@ -21,10 +32,7 @@ def lambda_handler(event, context):
         try:
             body = json.loads(event.get("body", "{}"))
         except Exception as e:
-            return {
-                "statusCode": 400,
-                "body": json.dumps({"error": f"Body inválido: {str(e)}"})
-            }
+            return build_response(400, {"error": f"Body inválido: {str(e)}"})
 
         try:
             conn = psycopg2.connect(
@@ -76,10 +84,7 @@ def lambda_handler(event, context):
             cur.close()
             conn.close()
         except Exception as e:
-            return {
-                "statusCode": 500,
-                "body": json.dumps({"error": f"No se pudo guardar en DB: {str(e)}"})
-            }
+            return build_response(500, {"error": f"No se pudo guardar en DB: {str(e)}"})
 
         # Enviar mensaje a SQS
         try:
@@ -90,22 +95,16 @@ def lambda_handler(event, context):
                 })
             )
         except Exception as e:
-            return {
-                "statusCode": 500,
-                "body": json.dumps({"error": f"No se pudo enviar a SQS: {str(e)}"})
-            }
+            return build_response(500, {"error": f"No se pudo enviar a SQS: {str(e)}"})
 
         # Respuesta HTTP
-        return {
-            "statusCode": 200,
-            "body": json.dumps({"message": "Datos recibidos, guardados en DB y enviados a SQS"})
-        }
+        return build_response(200, {"message": "Datos recibidos, guardados en DB y enviados a SQS"})
     
     elif method == "GET":
         params = event.get("queryStringParameters") or {}
         search = params.get("search")
         if not search:
-            return {"statusCode": 400, "body": json.dumps({"error": "Falta parámetro 'search'"})}
+            return build_response(400, {"error": "Falta parámetro 'search'"})
 
         try:
             conn = psycopg2.connect(
@@ -131,7 +130,7 @@ def lambda_handler(event, context):
             conn.close()
 
             if not row:
-                return {"statusCode": 404, "body": json.dumps({"error": "No se encontró el siniestro"})}
+                return build_response(404, {"error": "No se encontró el siniestro"})
 
             result = {
                 "id_siniestro": row[0],
@@ -142,10 +141,12 @@ def lambda_handler(event, context):
                 "url_documento": row[14]
             }
 
-            return {"statusCode": 200, "body": json.dumps(result)}
+            return build_response(200, result)
 
         except Exception as e:
-            return {"statusCode": 500, "body": json.dumps({"error": f"Error al consultar DB: {str(e)}"})}
+            return build_response(500, {"error": f"Error al consultar DB: {str(e)}"})
 
+    elif method == "OPTIONS":
+        return build_response(200, "")
     else:
-        return {"statusCode": 405, "body": json.dumps({"error": f"Método HTTP {method} no permitido"})}
+        return build_response(405, {"error": f"Método HTTP {method} no permitido"})

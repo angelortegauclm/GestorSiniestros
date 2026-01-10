@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-     const API_BASE = "https://k2f3ps7hjl.execute-api.us-east-1.amazonaws.com/Prod/"; 
+     const API_BASE = "https://rztdpkhari.execute-api.us-east-1.amazonaws.com/Prod"; 
 
     const form = document.getElementById('formRegistro');
     const btnBuscar = document.getElementById('btnBuscar');
