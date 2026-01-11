@@ -9,7 +9,10 @@ Parameters:
   LabRoleArn:
     Type: String
     Description: ARN del LabRole existente de IAM que se usará para la ejecución de la función Lambda.
- 
+  PrivateRouteTable:
+    Type: String
+    Description: Tabla de rutas asociada a PrivateSubnet1
+
 Resources:
 
   S3VPCEndpoint:
@@ -19,7 +22,7 @@ Resources:
       ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
       VpcEndpointType: Gateway
       RouteTableIds:
-        - rtb-0eb8ddbaebbc2f904
+        - !Ref PrivateRouteTable
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
