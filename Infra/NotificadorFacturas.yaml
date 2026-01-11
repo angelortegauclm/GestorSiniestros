@@ -32,14 +32,37 @@ Resources:
   # 1. Bucket S3 de Almacenamiento de las Facturas
   # ----------------------------------------------------
   FacturasBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub "facturas-gestorsiniestros-${AWS::AccountId}"
-      AccessControl: Private
-      Tags:
-        - Key: Project
-          Value: GestorSiniestros
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: !Sub "facturas-gestorsiniestros-${AWS::AccountId}"
+        # Añadimos OwnershipControls para asegurar que las ACLs no interfieran
+        OwnershipControls:
+          Rules:
+            - ObjectOwnership: BucketOwnerEnforced
+        # Desactivamos el bloqueo para permitir la política pública que viene abajo
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: false
+          BlockPublicPolicy: false
+          IgnorePublicAcls: false
+          RestrictPublicBuckets: false
+        Tags:
+          - Key: Project
+            Value: GestorSiniestros
  
+ 
+  FacturasBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FacturasBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: PublicReadPDF
+            Effect: Allow
+            Principal: "*"
+            Action: "s3:GetObject"
+            Resource: !Sub "arn:aws:s3:::${FacturasBucket}/*"
+
   # ----------------------------------------------------
   # 2. Tema SNS para la Notificación de las Facturas
   # ----------------------------------------------------

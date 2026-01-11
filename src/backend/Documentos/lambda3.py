@@ -72,7 +72,14 @@ def lambda_handler(event, context):
             with NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
                 pdf.output(tmp.name)
                 file_name = f"factura_{siniestro_id}.pdf"
-                s3.upload_file(tmp.name, BUCKET_NAME, file_name)
+                with open(tmp.name, 'rb') as f:
+                    s3.put_object(
+                        Bucket=BUCKET_NAME,
+                        Key=file_name,
+                        Body=f,
+                        ContentType='application/pdf',    # <--- ESTO permite la visualización
+                        ContentDisposition='inline'       # <--- ESTO sugiere abrir en el navegador
+                    )
                 region = os.environ.get("AWS_REGION", "eu-west-1")
                 pdf_url = f"https://{BUCKET_NAME}.s3.{region}.amazonaws.com/{file_name}"
             print(f"Documento {file_name} generado y subido a S3.")
