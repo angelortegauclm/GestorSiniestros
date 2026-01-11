@@ -3,18 +3,16 @@ Transform: AWS::Serverless-2016-10-31
 Description: Frontend estático con S3 + CloudFront
 
 Resources:
-  # Bucket S3 público
   FrontendBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: bucket-frontend-gestorsiniestros
+      BucketName: !Sub "bucket-frontend-gestorsiniestros-${AWS::AccountId}"
       PublicAccessBlockConfiguration:
         BlockPublicAcls: false
         BlockPublicPolicy: false
         IgnorePublicAcls: false
         RestrictPublicBuckets: false
 
-  # Política para permitir lectura pública
   FrontendBucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:

@@ -2,38 +2,63 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Infraestructura base para backend
 
-Parameters:
-  DBUsername:
-    Type: String
-    Default: admingestor
-  DBPassword:
-    Type: String
-    Default: admingestor
-    NoEcho: true
-  MyPublicIP:
-    Type: String
-    Description: IP pública
-    AllowedPattern: "^([0-9]{1,3}\\.){3}[0-9]{1,3}$"
-    ConstraintDescription: Debe ser una IP válida (x.x.x.x)
-  VpcId:
-    Type: AWS::EC2::VPC::Id
-    Description: VPC donde se desplegarán los recursos
-  PrivateSubnet1:
-    Type: AWS::EC2::Subnet::Id
-  PrivateSubnet2:
-    Type: AWS::EC2::Subnet::Id
-
 Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags: [{ Key: Name, Value: vpc-gestor-siniestros }]
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [ 0, !GetAZs "" ]
+      Tags: [{ Key: Name, Value: subnet-privada-1 }]
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [ 1, !GetAZs "" ]
+      Tags: [{ Key: Name, Value: subnet-privada-2 }]
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags: [{ Key: Name, Value: tabla-rutas-privada }]
+
+  RouteAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable
+
+  RouteAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable
+
   BackendSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: "SecurityGroup para Lambdas y RDS"
-      VpcId: !Ref VpcId
+      GroupDescription: "Acceso para Lambdas y RDS"
+      VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 5432
           ToPort: 5432
-          CidrIp: !Sub "${MyPublicIP}/32"
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
 
   BackendSecurityGroupIngressSelf:
     Type: AWS::EC2::SecurityGroupIngress
@@ -44,22 +69,11 @@ Resources:
       ToPort: 5432
       SourceSecurityGroupId: !Ref BackendSecurityGroup
 
-  BackendSecurityGroupHttpsIngress:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      GroupId: !Ref BackendSecurityGroup
-      IpProtocol: tcp
-      FromPort: 443
-      ToPort: 443
-      CidrIp: 0.0.0.0/0
-
   BackendDBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
       DBSubnetGroupDescription: Subnets privadas para RDS
-      SubnetIds:
-        - !Ref PrivateSubnet1
-        - !Ref PrivateSubnet2
+      SubnetIds: [!Ref PrivateSubnet1, !Ref PrivateSubnet2]
 
   BackendDB:
     Type: AWS::RDS::DBInstance
@@ -67,14 +81,13 @@ Resources:
       DBName: backenddb
       Engine: postgres
       EngineVersion: "18.1"
-      MasterUsername: !Ref DBUsername
-      MasterUserPassword: !Ref DBPassword
+      MasterUsername: admingestor
+      MasterUserPassword: admingestor
       DBInstanceClass: db.t3.micro
       AllocatedStorage: 20
-      PubliclyAccessible: true
       DBSubnetGroupName: !Ref BackendDBSubnetGroup
-      VPCSecurityGroups:
-        - !Ref BackendSecurityGroup
+      VPCSecurityGroups: [!Ref BackendSecurityGroup]
+      PubliclyAccessible: true
 
   Queue1:
     Type: AWS::SQS::Queue
@@ -86,33 +99,75 @@ Resources:
     Properties:
       QueueName: queue-2
       VisibilityTimeout: 150
-      
+
+  S3VPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VPC
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
+      VpcEndpointType: Gateway
+      RouteTableIds: [!Ref PrivateRouteTable]
+
   SQSVPCEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
-      VpcId: !Ref VpcId
+      VpcId: !Ref VPC
       ServiceName: !Sub "com.amazonaws.${AWS::Region}.sqs"
       VpcEndpointType: Interface
       PrivateDnsEnabled: true
-      SubnetIds:
-        - !Ref PrivateSubnet1
-        - !Ref PrivateSubnet2
-      SecurityGroupIds:
-        - !Ref BackendSecurityGroup
+      SubnetIds: [!Ref PrivateSubnet1, !Ref PrivateSubnet2]
+      SecurityGroupIds: [!Ref BackendSecurityGroup]
+
+  SNSVPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VPC
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.sns"
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds: [!Ref PrivateSubnet1, !Ref PrivateSubnet2]
+      SecurityGroupIds: [!Ref BackendSecurityGroup]
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags: [{ Key: Name, Value: igw-gestor-siniestros }]
+
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
 
 Outputs:
-  DBEndpoint:
-    Description: "Endpoint de la base de datos"
+  ExportDBEndpoint:
     Value: !GetAtt BackendDB.Endpoint.Address
-  DBPort:
-    Description: "Puerto de la base de datos"
-    Value: !GetAtt BackendDB.Endpoint.Port
-  Queue1URL:
-    Description: "URL de la cola 1"
-    Value: !Ref Queue1
-  Queue2URL:
-    Description: "URL de la cola 2"
-    Value: !Ref Queue2
-  SecurityGroupId:
-    Description: "Security Group para Lambdas"
+    Export: { Name: !Sub "${AWS::StackName}-DBEndpoint" }
+  ExportSecurityGroup:
     Value: !Ref BackendSecurityGroup
+    Export: { Name: !Sub "${AWS::StackName}-SecurityGroup" }
+  ExportQueue1URL:
+    Value: !Ref Queue1
+    Export: { Name: !Sub "${AWS::StackName}-Queue1URL" }
+  ExportQueue1ARN:
+    Value: !GetAtt Queue1.Arn
+    Export: { Name: !Sub "${AWS::StackName}-Queue1ARN" }
+  ExportQueue2URL:
+    Value: !Ref Queue2
+    Export: { Name: !Sub "${AWS::StackName}-Queue2URL" }
+  ExportQueue2ARN:
+    Value: !GetAtt Queue2.Arn
+    Export: { Name: !Sub "${AWS::StackName}-Queue2ARN" }
+  ExportSubnet1:
+    Value: !Ref PrivateSubnet1
+    Export: { Name: !Sub "${AWS::StackName}-Subnet1" }
+  ExportSubnet2:
+    Value: !Ref PrivateSubnet2
+    Export: { Name: !Sub "${AWS::StackName}-Subnet2" }

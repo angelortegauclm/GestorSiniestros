@@ -1,58 +1,35 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Stack Serverless encargado de recibir facturas en PDF y notificar automáticamente al cliente vía correo electrónico.
- 
+
 Parameters:
   EmailAddress:
     Type: String
-    Description: Dirección de correo electrónico para recibir notificaciones de SNS.
+    Description: Dirección de correo para recibir notificaciones de SNS.
   LabRoleArn:
     Type: String
     Description: ARN del LabRole existente de IAM que se usará para la ejecución de la función Lambda.
-  PrivateRouteTable:
+  CoreStackName:
     Type: String
-    Description: Tabla de rutas asociada a PrivateSubnet1
+    Default: core-backend
 
 Resources:
-
-  S3VPCEndpoint:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      VpcId: vpc-04a45efcdc2a74ea9
-      ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
-      VpcEndpointType: Gateway
-      RouteTableIds:
-        - !Ref PrivateRouteTable
-      PolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal: "*"
-            Action: "s3:*"
-            Resource: "*"
-
-  # ----------------------------------------------------
-  # 1. Bucket S3 de Almacenamiento de las Facturas
-  # ----------------------------------------------------
   FacturasBucket:
-      Type: AWS::S3::Bucket
-      Properties:
-        BucketName: !Sub "facturas-gestorsiniestros-${AWS::AccountId}"
-        # Añadimos OwnershipControls para asegurar que las ACLs no interfieran
-        OwnershipControls:
-          Rules:
-            - ObjectOwnership: BucketOwnerEnforced
-        # Desactivamos el bloqueo para permitir la política pública que viene abajo
-        PublicAccessBlockConfiguration:
-          BlockPublicAcls: false
-          BlockPublicPolicy: false
-          IgnorePublicAcls: false
-          RestrictPublicBuckets: false
-        Tags:
-          - Key: Project
-            Value: GestorSiniestros
- 
- 
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "facturas-gestorsiniestros-${AWS::AccountId}"
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      Tags:
+        - Key: Project
+          Value: GestorSiniestros
+
   FacturasBucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
@@ -66,28 +43,19 @@ Resources:
             Action: "s3:GetObject"
             Resource: !Sub "arn:aws:s3:::${FacturasBucket}/*"
 
-  # ----------------------------------------------------
-  # 2. Tema SNS para la Notificación de las Facturas
-  # ----------------------------------------------------
   FacturaNotificationTopic:
     Type: AWS::SNS::Topic
     Properties:
       TopicName: Notificaciones-GestorSiniestros
       DisplayName: Gestion Siniestros
- 
-  # ----------------------------------------------------
-  # 3. Suscripción al Tema SNS
-  # ----------------------------------------------------
+
   FacturaEmailSubscription:
     Type: AWS::SNS::Subscription
     Properties:
       Protocol: email
       Endpoint: !Ref EmailAddress
       TopicArn: !Ref FacturaNotificationTopic
- 
-  # ----------------------------------------------------
-  # 4. Función Lambda de Notificación
-  # ----------------------------------------------------
+
   NotificacionFacturaFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -101,10 +69,17 @@ Resources:
       Environment:
         Variables:
           SNS_TOPIC_ARN: !Ref FacturaNotificationTopic
-           
-      # ----------------------------------------------------
-      # 5. Trigger
-      # ----------------------------------------------------
+      
+      VpcConfig:
+        SecurityGroupIds:
+          - !ImportValue 
+            Fn::Sub: "${CoreStackName}-SecurityGroup"
+        SubnetIds:
+          - !ImportValue 
+            Fn::Sub: "${CoreStackName}-Subnet1"
+          - !ImportValue 
+            Fn::Sub: "${CoreStackName}-Subnet2"
+
       Events:
         FacturaSubida:
           Type: S3
