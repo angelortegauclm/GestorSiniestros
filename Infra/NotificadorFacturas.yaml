@@ -11,6 +11,23 @@ Parameters:
     Description: ARN del LabRole existente de IAM que se usará para la ejecución de la función Lambda.
  
 Resources:
+
+  S3VPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: vpc-04a45efcdc2a74ea9
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
+      VpcEndpointType: Gateway
+      RouteTableIds:
+        - rtb-0eb8ddbaebbc2f904
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action: "s3:*"
+            Resource: "*"
+
   # ----------------------------------------------------
   # 1. Bucket S3 de Almacenamiento de las Facturas
   # ----------------------------------------------------
