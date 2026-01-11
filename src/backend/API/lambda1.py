@@ -6,7 +6,7 @@ import boto3
 # Configuración
 QUEUE_URL = os.environ.get("QUEUE_URL")
 DB_HOST = os.environ.get("DB_HOST")
-DB_PORT = int(os.environ.get("DB_PORT"))
+DB_PORT = int(os.environ.get("DB_PORT", "5432"))
 DB_NAME = os.environ.get("DB_NAME", "clase")
 DB_USER = os.environ.get("DB_USER", "postgres")
 DB_PASSWORD = os.environ.get("DB_PASSWORD", "")
@@ -28,11 +28,26 @@ def build_response(status_code, body):
 def lambda_handler(event, context):
     method = event.get("httpMethod", "")
 
+    if method == "OPTIONS":
+        return build_response(200, "")
+
     if method == "POST":
+        raw_body = event.get("body")
+        if not raw_body:
+            return build_response(400, {"error": "Body vacío"})
+
         try:
-            body = json.loads(event.get("body", "{}"))
+            body = json.loads(raw_body)
         except Exception as e:
             return build_response(400, {"error": f"Body inválido: {str(e)}"})
+
+        try:
+            cliente = body["cliente"]
+            vehiculo = body["vehiculo"]
+            poliza = body["poliza"]
+            reparacion = body["reparacion"]
+        except KeyError as e:
+            return build_response(400, {"error": f"Campo requerido ausente: {str(e)}"})
 
         try:
             conn = psycopg2.connect(
@@ -64,25 +79,27 @@ def lambda_handler(event, context):
                 RETURNING id_siniestro
                 """,
                 (
-                    body["nombre"],
-                    body["dni"],
-                    body["email"],
-                    body["matricula"],
-                    body["marca"],
-                    body["modelo"],
-                    body.get("anio"),
-                    body["tipo_poliza"],
-                    body.get("limite"),
-                    body.get("franquicia"),
-                    body.get("taller"),
-                    body.get("mano_obra"),
-                    body.get("piezas")
+                    cliente["nombre"],
+                    cliente["dni"],
+                    cliente["email"],
+                    vehiculo["matricula"],
+                    vehiculo["marca"],
+                    vehiculo["modelo"],
+                    vehiculo.get("anio"),
+                    poliza["tipo"],
+                    poliza.get("limite"),
+                    poliza.get("franquicia"),
+                    reparacion.get("taller"),
+                    reparacion.get("mo"),
+                    reparacion.get("piezas")
                 )
             )
+
             id_siniestro = cur.fetchone()[0]
             conn.commit()
             cur.close()
             conn.close()
+
         except Exception as e:
             return build_response(500, {"error": f"No se pudo guardar en DB: {str(e)}"})
 
@@ -102,7 +119,7 @@ def lambda_handler(event, context):
     
     elif method == "GET":
         params = event.get("queryStringParameters") or {}
-        search = params.get("search")
+        search = params.get("search", "").strip()
         if not search:
             return build_response(400, {"error": "Falta parámetro 'search'"})
 
@@ -145,8 +162,5 @@ def lambda_handler(event, context):
 
         except Exception as e:
             return build_response(500, {"error": f"Error al consultar DB: {str(e)}"})
-
-    elif method == "OPTIONS":
-        return build_response(200, "")
     else:
         return build_response(405, {"error": f"Método HTTP {method} no permitido"})

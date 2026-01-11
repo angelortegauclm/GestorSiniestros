@@ -3,6 +3,7 @@ import os
 import json
 from datetime import datetime
 import psycopg2  # librería para Conectarte a PostgreSQL y ejecutar SQL
+from psycopg2.extras import RealDictCursor
 
 # Configuración de Clientes AWS
 sqs = boto3.client('sqs')
@@ -18,7 +19,7 @@ DB_NAME = os.environ.get('DB_NAME')
 DB_USER = os.environ.get('DB_USER')
 DB_PASS = os.environ.get('DB_PASSWORD')
 QUEUE_2_URL = os.environ.get('QUEUE_2_URL')
-DB_PORT = int(os.environ.get("DB_PORT"))
+DB_PORT = int(os.environ.get("DB_PORT", 5432))
 
 
 def lambda_handler(event, context):
@@ -26,12 +27,18 @@ def lambda_handler(event, context):
     
     # 1. PROCESAMIENTO DE MENSAJES DESDE SQS (Queue1)
     for record in event.get('Records', []):
+        cliente = vehiculo = poliza = reparacion = None
+        base_imponible = impuestos = total_reparacion = 0
+        pago_aseguradora = pago_cliente = 0
+        antiguedad = 0
         try:
-            data = json.loads(record["body"])
+            data = json.loads(record.get("body", "{}"))
+            id_siniestro = data.get("id_siniestro")
+            if not id_siniestro:
+                print("Mensaje SQS inválido, falta 'id_siniestro'")
+                continue
 
-            siniestro_id = data.get("id_siniestro")
-            siniestro_id = int(siniestro_id)
-
+            id_siniestro = int(id_siniestro)
 
             conn = psycopg2.connect(
                 host=DB_HOST,
@@ -40,18 +47,15 @@ def lambda_handler(event, context):
                 user=DB_USER,
                 password=DB_PASS
             )
-            cur = conn.cursor()
-            cur.execute(
-                """
-                SELECT
-                    *
-                FROM siniestros
-                WHERE id_siniestro = %s
-                """
-                (siniestro_id)
-            )
-
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("SELECT * FROM siniestros WHERE id_siniestro = %s", (id_siniestro,))
             fila = cur.fetchone()
+            cur.close()
+            conn.close()
+
+            if not fila:
+                print(f"Siniestro {id_siniestro} no encontrado en la DB")
+                continue
             cliente = {
                 "nombre": fila["nombre"],
                 "dni": fila["dni"],
@@ -83,7 +87,7 @@ def lambda_handler(event, context):
             mano_obra = float(reparacion.get('coste_mano_obra', 0))
             piezas = float(reparacion.get('coste_piezas', 0))
             
-            anio_coche = int(fila["anio"], datetime.now().year)
+            anio_coche = int(fila["anio"])
             antiguedad = datetime.now().year - anio_coche
             
             depreciacion_piezas = 0.0
@@ -123,34 +127,39 @@ def lambda_handler(event, context):
                     else:
                         pago_aseguradora = resto
 
-
-            #  4. GUARDAR RESULTADOS EN LA BASE DE DATOS                
-              #  Actualiza el registro que creó la Lambda 1
-                cur.execute(
-                    """
-                    UPDATE table_siniestros 
-                    SET total_coste = %s, pago_seguro = %s, pago_cliente = %s
-                    WHERE id = %s
-                    """,
-                    (
-                        round(total_reparacion, 2),
-                        round(pago_aseguradora, 2),
-                        round(pago_cliente, 2),
-                        siniestro_id
-                    )
+            conn = psycopg2.connect(
+                host=DB_HOST,
+                port=DB_PORT,
+                database=DB_NAME,
+                user=DB_USER,
+                password=DB_PASS
+            )
+            cur = conn.cursor()
+            cur.execute(
+                """
+                UPDATE siniestros 
+                SET total_coste = %s, pago_aseguradora = %s, pago_cliente = %s, estado_reparacion = 'Estimacion realizada'
+                WHERE id_siniestro = %s
+                """,
+                (
+                    round(total_reparacion, 2),
+                    round(pago_aseguradora, 2),
+                    round(pago_cliente, 2),
+                    id_siniestro
                 )
-                
-                conn.commit()
-                cur.close()
-                conn.close()
-                print(f"Base de datos actualizada para siniestro: {siniestro_id}")
+            )
+            
+            conn.commit()
+            cur.close()
+            conn.close()
+            print(f"Base de datos actualizada para siniestro: {id_siniestro}")
         except Exception as db_e:
             print(f"Error en DB: {str(db_e)}")
 
 
             # 5. PREPARAR DATOS (PDF/Email)
             resultado_calculo = {
-                "id_siniestro": siniestro_id,
+                "id_siniestro": id_siniestro,
                 "datos_cliente": cliente,
                 "datos_vehiculo": vehiculo,
                 "detalle_economico": {
@@ -168,7 +177,7 @@ def lambda_handler(event, context):
                 QueueUrl=QUEUE_2_URL,
                 MessageBody=json.dumps(resultado_calculo)
             )
-            print(f"Cálculo enviado a Queue2 para siniestro: {siniestro_id}")
+            print(f"Cálculo enviado a Queue2 para siniestro: {id_siniestro}")
 
         except Exception as e:
             print(f"Error procesando record: {str(e)}")

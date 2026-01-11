@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Stack Serverless encargado de recibir facturas en PDF y notificar automáticamente al cliente vía correo electrónico.
+Description: Stack Serverless encargado de recibir facturas en PDF y notificar automáticamente al usuario vía correo electrónico.
 
 Parameters:
   EmailAddress:
@@ -9,6 +9,21 @@ Parameters:
   LabRoleArn:
     Type: String
     Description: ARN del LabRole existente de IAM que se usará para la ejecución de la función Lambda.
+  VpcId:
+    Type: String
+    Description: VPC donde se desplegarán los recursos
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet privada 1
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet privada 2
+  PrivateRouteTable1:
+    Type: String
+    Description: Tabla de rutas asociada a PrivateSubnet1
+  NotificacionSG:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Security Group para la Lambda Notificación
 
 Resources:
   # ----------------------------------------------------
@@ -24,7 +39,26 @@ Resources:
           Value: GestorSiniestros
 
   # ----------------------------------------------------
-  # 2. Tema SNS para la Notificación de las Facturas
+  # 2. VPC Endpoint para S3 (Gateway)
+  # ----------------------------------------------------
+  S3VPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VpcId
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
+      VpcEndpointType: Gateway
+      RouteTableIds:
+        - !Ref PrivateRouteTable1
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action: "s3:*"
+            Resource: "*"
+
+  # ----------------------------------------------------
+  # 3. Tema SNS para la Notificación de las Facturas
   # ----------------------------------------------------
   FacturaNotificationTopic:
     Type: AWS::SNS::Topic
@@ -33,7 +67,7 @@ Resources:
       DisplayName: Gestion Siniestros
 
   # ----------------------------------------------------
-  # 3. Suscripción al Tema SNS
+  # 4. Suscripción al Tema SNS
   # ----------------------------------------------------
   FacturaEmailSubscription:
     Type: AWS::SNS::Subscription
@@ -43,7 +77,7 @@ Resources:
       TopicArn: !Ref FacturaNotificationTopic
 
   # ----------------------------------------------------
-  # 4. Función Lambda de Notificación
+  # 5. Función Lambda de Notificación
   # ----------------------------------------------------
   NotificacionFacturaFunction:
     Type: AWS::Serverless::Function
@@ -57,10 +91,16 @@ Resources:
       Role: !Ref LabRoleArn
       Environment:
         Variables:
-          SNS_TOPIC_ARN: !Ref FacturaNotificationTopic 
-            
+          SNS_TOPIC_ARN: !Ref FacturaNotificationTopic
+      VpcConfig:
+        SubnetIds:
+          - !Ref PrivateSubnet1
+          - !Ref PrivateSubnet2
+        SecurityGroupIds:
+          - !Ref NotificacionSG
+
       # ----------------------------------------------------
-      # 5. Trigger
+      # 6. Trigger del Bucket
       # ----------------------------------------------------
       Events:
         FacturaSubida:
