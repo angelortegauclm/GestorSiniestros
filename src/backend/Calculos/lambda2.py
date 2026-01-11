@@ -40,121 +40,122 @@ def lambda_handler(event, context):
 
             id_siniestro = int(id_siniestro)
 
-            conn = psycopg2.connect(
-                host=DB_HOST,
-                port=DB_PORT,
-                database=DB_NAME,
-                user=DB_USER,
-                password=DB_PASS
-            )
-            cur = conn.cursor(cursor_factory=RealDictCursor)
-            cur.execute("SELECT * FROM siniestros WHERE id_siniestro = %s", (id_siniestro,))
-            fila = cur.fetchone()
-            cur.close()
-            conn.close()
-
-            if not fila:
-                print(f"Siniestro {id_siniestro} no encontrado en la DB")
-                continue
-            cliente = {
-                "nombre": fila["nombre"],
-                "dni": fila["dni"],
-                "email": fila["email"]
-            }
-
-            vehiculo = {
-                "matricula": fila["matricula"],
-                "marca": fila["marca"],
-                "modelo": fila["modelo"],
-                "anio": fila["anio"]
-            }
-
-            poliza = {
-                "tipo": fila["informacion_poliza"],
-                "franquicia": fila["franquicia"],
-                "limite_cobertura": fila["limite"]
-            }
-
-            reparacion = {
-                "coste_mano_obra": fila["mano_obra"],
-                "coste_piezas": fila["piezas"],
-                "taller": fila["taller"],
-                "estado": fila["estado_reparacion"],
-                "url_documento": fila["url_documento"]
-            }
-
-            # 2. CÁLCULOS DE DEPRECIACIÓN POR ANTIGÜEDAD
-            mano_obra = float(reparacion.get('coste_mano_obra', 0))
-            piezas = float(reparacion.get('coste_piezas', 0))
-            
-            anio_coche = int(fila["anio"])
-            antiguedad = datetime.now().year - anio_coche
-            
-            depreciacion_piezas = 0.0
-            if antiguedad > 10:
-                depreciacion_piezas = piezas * 0.20
-
-            piezas_final = piezas - depreciacion_piezas
-            base_imponible = mano_obra + piezas_final
-            impuestos = base_imponible * IVA_PORCENTAJE
-            total_reparacion = base_imponible + impuestos
-
-            # 3. LÓGICA DE SEGURO (TERCEROS / TODO RIESGO / FRANQUICIA)
-            tipo_seguro = poliza.get('tipo', 'TERCEROS').upper()
-            franquicia = float(poliza.get('franquicia', 0))
-            limite = float(poliza.get('limite_cobertura', 0))
-
-            pago_aseguradora = 0.0
-            pago_cliente = 0.0
-
-            if tipo_seguro == 'TERCEROS':
-                pago_cliente = total_reparacion
-            elif tipo_seguro == 'TODO_RIESGO':
-                if total_reparacion > limite:
-                    pago_aseguradora = limite
-                    pago_cliente = total_reparacion - limite
-                else:
-                    pago_aseguradora = total_reparacion
-            elif 'FRANQUICIA' in tipo_seguro:
-                if total_reparacion <= franquicia:
-                    pago_cliente = total_reparacion
-                else:
-                    pago_cliente = franquicia
-                    resto = total_reparacion - franquicia
-                    if resto > limite:
-                        pago_aseguradora = limite
-                        pago_cliente += (resto - limite)
-                    else:
-                        pago_aseguradora = resto
-
-            conn = psycopg2.connect(
-                host=DB_HOST,
-                port=DB_PORT,
-                database=DB_NAME,
-                user=DB_USER,
-                password=DB_PASS
-            )
-            cur = conn.cursor()
-            cur.execute(
-                """
-                UPDATE siniestros 
-                SET total_coste = %s, pago_aseguradora = %s, pago_cliente = %s, estado_reparacion = 'Estimacion realizada'
-                WHERE id_siniestro = %s
-                """,
-                (
-                    round(total_reparacion, 2),
-                    round(pago_aseguradora, 2),
-                    round(pago_cliente, 2),
-                    id_siniestro
+            try:
+                conn = psycopg2.connect(
+                    host=DB_HOST,
+                    port=DB_PORT,
+                    database=DB_NAME,
+                    user=DB_USER,
+                    password=DB_PASS
                 )
-            )
-            
-            conn.commit()
-            cur.close()
-            conn.close()
-            print(f"Base de datos actualizada para siniestro: {id_siniestro}")
-        except Exception as db_e:
-            print(f"Error en DB: {str(db_e)}")
+                cur = conn.cursor(cursor_factory=RealDictCursor)
+                cur.execute("SELECT * FROM siniestros WHERE id_siniestro = %s", (id_siniestro,))
+                fila = cur.fetchone()
+                cur.close()
+                conn.close()
+
+                if not fila:
+                    print(f"Siniestro {id_siniestro} no encontrado en la DB")
+                    continue
+                cliente = {
+                    "nombre": fila["nombre"],
+                    "dni": fila["dni"],
+                    "email": fila["email"]
+                }
+
+                vehiculo = {
+                    "matricula": fila["matricula"],
+                    "marca": fila["marca"],
+                    "modelo": fila["modelo"],
+                    "anio": fila["anio"]
+                }
+
+                poliza = {
+                    "tipo": fila["informacion_poliza"],
+                    "franquicia": fila["franquicia"],
+                    "limite_cobertura": fila["limite"]
+                }
+
+                reparacion = {
+                    "coste_mano_obra": fila["mano_obra"],
+                    "coste_piezas": fila["piezas"],
+                    "taller": fila["taller"],
+                    "estado": fila["estado_reparacion"],
+                    "url_documento": fila["url_documento"]
+                }
+
+                # 2. CÁLCULOS DE DEPRECIACIÓN POR ANTIGÜEDAD
+                mano_obra = float(reparacion.get('coste_mano_obra', 0))
+                piezas = float(reparacion.get('coste_piezas', 0))
+                
+                anio_coche = int(fila["anio"])
+                antiguedad = datetime.now().year - anio_coche
+                
+                depreciacion_piezas = 0.0
+                if antiguedad > 10:
+                    depreciacion_piezas = piezas * 0.20
+
+                piezas_final = piezas - depreciacion_piezas
+                base_imponible = mano_obra + piezas_final
+                impuestos = base_imponible * IVA_PORCENTAJE
+                total_reparacion = base_imponible + impuestos
+
+                # 3. LÓGICA DE SEGURO (TERCEROS / TODO RIESGO / FRANQUICIA)
+                tipo_seguro = poliza.get('tipo', 'TERCEROS').upper()
+                franquicia = float(poliza.get('franquicia', 0))
+                limite = float(poliza.get('limite_cobertura', 0))
+
+                pago_aseguradora = 0.0
+                pago_cliente = 0.0
+
+                if tipo_seguro == 'TERCEROS':
+                    pago_cliente = total_reparacion
+                elif tipo_seguro == 'TODO_RIESGO':
+                    if total_reparacion > limite:
+                        pago_aseguradora = limite
+                        pago_cliente = total_reparacion - limite
+                    else:
+                        pago_aseguradora = total_reparacion
+                elif 'FRANQUICIA' in tipo_seguro:
+                    if total_reparacion <= franquicia:
+                        pago_cliente = total_reparacion
+                    else:
+                        pago_cliente = franquicia
+                        resto = total_reparacion - franquicia
+                        if resto > limite:
+                            pago_aseguradora = limite
+                            pago_cliente += (resto - limite)
+                        else:
+                            pago_aseguradora = resto
+
+                conn = psycopg2.connect(
+                    host=DB_HOST,
+                    port=DB_PORT,
+                    database=DB_NAME,
+                    user=DB_USER,
+                    password=DB_PASS
+                )
+                cur = conn.cursor()
+                cur.execute(
+                    """
+                    UPDATE siniestros 
+                    SET total_coste = %s, pago_aseguradora = %s, pago_cliente = %s, estado_reparacion = 'Estimacion realizada'
+                    WHERE id_siniestro = %s
+                    """,
+                    (
+                        round(total_reparacion, 2),
+                        round(pago_aseguradora, 2),
+                        round(pago_cliente, 2),
+                        id_siniestro
+                    )
+                )
+                
+                conn.commit()
+                cur.close()
+                conn.close()
+                print(f"Base de datos actualizada para siniestro: {id_siniestro}")
+            except Exception as db_e:
+                print(f"Error en DB: {str(db_e)}")
 
 
             # 5. PREPARAR DATOS (PDF/Email)
