@@ -111,8 +111,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
    function capturarDatos() {
        return {
-           id_siniestro: document.getElementById('id_siniestro').value.trim() || null,
-           cliente: { 
+            cliente: { 
                nombre: document.getElementById('nombre').value.trim(),
                dni: document.getElementById('dni').value.trim(),
                email: document.getElementById('email').value.trim()
@@ -137,74 +136,98 @@ document.addEventListener('DOMContentLoaded', async () => {
    }
 
    function visualizarInfo(data) {
-       const container = document.getElementById('infoResult');
-       container.style.display = 'block';
-       
-       const mo = data.reparacion?.mo || 0;
-       const piezas = data.reparacion?.piezas || 0;
-       const total = data.total || (mo + piezas);
-   
-       // --- DOCUMENTO PDF ---
-       let documentoHTML = `<p class="text-muted">No hay documento asociado.</p>`;
-   
-       if (data.url_documento) {
-           documentoHTML = `
-               <div class="mt-4">
-                   <h6 class="fw-bold">Documento del Siniestro</h6>
-   
-                   <!-- Vista previa -->
-                   <div class="ratio ratio-4x3 border rounded mb-2">
-                       <iframe 
-                           src="${data.url_documento}" 
-                           title="Documento PDF"
-                           loading="lazy">
-                       </iframe>
-                   </div>
-   
-                   <!-- Descarga -->
-                   <a href="${data.url_documento}" 
-                      class="btn btn-outline-primary btn-sm"
-                      target="_blank"
-                      download>
-                       Descargar PDF
-                   </a>
-               </div>
-           `;
-       }
-   
-       container.innerHTML = `
-           <div class="card border-primary shadow-sm">
-               <div class="card-header bg-primary text-white text-center fw-bold">
-                   Detalle del Expediente
-               </div>
-               <div class="card-body">
-                   <p><strong>Siniestro ID:</strong> ${data.id_siniestro || 'N/A'}</p>
-                   <p><strong>Cliente:</strong> ${data.cliente?.nombre || 'Desconocido'}</p>
-                   <p><strong>DNI:</strong> ${data.cliente?.dni || 'N/A'}</p>
-                   <p><strong>Taller:</strong> ${data.reparacion?.taller || 'No asignado'}</p>
-   
-                   <hr>
-   
-                   <table class="table table-sm table-borderless">
-                       <tr>
-                           <td>Mano de Obra</td>
-                           <td class="text-end">${mo.toFixed(2)}€</td>
-                       </tr>
-                       <tr>
-                           <td>Piezas / Material</td>
-                           <td class="text-end">${piezas.toFixed(2)}€</td>
-                       </tr>
-                       <tr class="border-top fw-bold text-primary">
-                           <td>TOTAL</td>
-                           <td class="text-end">${total.toFixed(2)}€</td>
-                       </tr>
-                   </table>
-   
-                   ${documentoHTML}
-               </div>
-           </div>
-       `;
-   }
+
+        const container = document.getElementById('infoResult');
+        container.style.display = 'block';
+        
+        // Mapeo directo de los campos de tu SQL (ajustado por si vienen nulos)
+        const mo = parseFloat(data.mano_obra || 0);
+        const piezas = parseFloat(data.piezas || 0);
+        const total = parseFloat(data.total_coste || (mo + piezas));
+        const pagoAseguradora = parseFloat(data.pago_aseguradora || 0);
+        const pagoCliente = parseFloat(data.pago_cliente || 0);
+
+        // Badge de estado según el valor de la DB
+        let colorEstado = "bg-secondary";
+        if (data.estado_reparacion?.toLowerCase().includes("pendiente")) colorEstado = "bg-warning text-dark";
+        if (data.estado_reparacion?.toLowerCase().includes("finalizado")) colorEstado = "bg-success";
+
+        // --- DOCUMENTO PDF ---
+        let documentoHTML = `<p class="text-muted small italic">No hay documento asociado.</p>`;
+        if (data.url_documento) {
+            documentoHTML = `
+                <div class="mt-4">
+                    <h6 class="fw-bold border-bottom pb-1">Documentación Adjunta</h6>
+                    <div class="ratio ratio-16x9 border rounded mb-2 shadow-sm bg-dark">
+                        <iframe src="${data.url_documento}" title="Documento PDF" loading="lazy"></iframe>
+                    </div>
+                    <a href="${data.url_documento}" 
+                        class="btn btn-sm btn-primary w-100" 
+                        download="Siniestro_${data.id_siniestro}.pdf"
+                        target="_blank">
+                            <i class="bi bi-download"></i> Descargar Informe PDF
+                    </a>
+                </div>`;
+        }
+
+        container.innerHTML = `
+            <div class="card border shadow-lg mb-5">
+                <div class="card-header  d-flex justify-content-between align-items-center">
+                    <span class="fw-bold">EXPEDIENTE #${data.id_siniestro}</span>
+                    <span class="badge ${colorEstado}">${data.estado_reparacion || 'Sin estado'}</span>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <small class="text-muted d-block">CLIENTE</small>
+                            <strong>${data.nombre}</strong><br>
+                            <small>${data.dni} | ${data.email}</small>
+                        </div>
+                        <div class="col-6 text-end">
+                            <small class="text-muted d-block">VEHÍCULO</small>
+                            <strong>${data.marca.toUpperCase()} ${data.modelo}</strong><br>
+                            <span class="badge bg-light text-dark border">${data.matricula}</span>
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-light rounded border mb-3">
+                        <h6 class="fw-bold mb-3"><i class="bi bi-tools"></i> Resumen Económico</h6>
+                        <table class="table table-sm table-borderless mb-0">
+                            <tr><td>Mano de obra</td><td class="text-end">${mo.toFixed(2)}€</td></tr>
+                            <tr><td>Piezas / Recambios</td><td class="text-end">${piezas.toFixed(2)}€</td></tr>
+                            <tr class="border-top">
+                                <td class="fw-bold">COSTE TOTAL SINIESTRO</td>
+                                <td class="text-end fw-bold">${total.toFixed(2)}€</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <div class="border rounded p-2 text-center bg-white">
+                                <small class="text-muted d-block">Cubre Aseguradora</small>
+                                <span class="text-success fw-bold">${pagoAseguradora.toFixed(2)}€</span>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="border rounded p-2 text-center bg-white">
+                                <small class="text-muted d-block">Cargo Cliente (Franquicia)</small>
+                                <span class="text-danger fw-bold">${pagoCliente.toFixed(2)}€</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="small text-muted mb-3">
+                        <strong>Póliza:</strong> ${data.informacion_poliza} 
+                        (Límite: ${parseFloat(data.limite).toFixed(2)}€)
+                    </p>
+
+                    ${documentoHTML}
+                </div>
+            </div>
+        `;
+    }
+
 
    function mostrarModal(titulo, cuerpo, claseHeader) {
        document.getElementById('modalTitle').innerText = titulo;

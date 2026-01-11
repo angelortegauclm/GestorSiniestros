@@ -136,7 +136,8 @@ def lambda_handler(event, context):
             cur.execute(
                 """
                 SELECT id_siniestro, nombre, dni, email, matricula, marca, modelo, anio,
-                       informacion_poliza, limite, franquicia, taller, mano_obra, piezas, url_documento
+                       informacion_poliza, limite, franquicia, taller, mano_obra, piezas,
+                       estado_reparacion, url_documento, total_coste, pago_aseguradora, pago_cliente
                 FROM siniestros
                 WHERE id_siniestro::text = %s OR dni = %s
                 """,
@@ -151,13 +152,26 @@ def lambda_handler(event, context):
 
             result = {
                 "id_siniestro": row[0],
-                "cliente": {"nombre": row[1], "dni": row[2], "email": row[3]},
-                "vehiculo": {"matricula": row[4], "marca": row[5], "modelo": row[6], "anio": row[7]},
-                "poliza": {"tipo": row[8], "limite": float(row[9] or 0), "franquicia": float(row[10] or 0)},
-                "reparacion": {"taller": row[11], "mo": float(row[12] or 0), "piezas": float(row[13] or 0)},
-                "url_documento": row[14]
+                "nombre": row[1], # Datos directos (strings)
+                "dni": row[2],
+                "email": row[3],
+                "matricula": row[4],
+                "marca": row[5],
+                "modelo": row[6],
+                "anio": row[7],
+                "informacion_poliza": row[8],
+                # Datos numéricos con cast a float para evitar fallos de JSON
+                "limite": float(row[9] or 0),
+                "franquicia": float(row[10] or 0),
+                "taller": row[11],
+                "mano_obra": float(row[12] or 0),
+                "piezas": float(row[13] or 0),
+                "url_documento": row[15],
+                "estado_reparacion": row[14],
+                "total_coste": float(row[16] or 0),
+                "pago_aseguradora": float(row[17] or 0),
+                "pago_cliente": float(row[18] or 0)
             }
-
             return build_response(200, result)
 
         except Exception as e:
