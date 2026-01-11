@@ -86,15 +86,6 @@ def lambda_handler(event, context):
                     port=DB_PORT
                 )
                 cur = conn.cursor()
-                
-                cur.execute(
-                    """
-                    UPDATE siniestros 
-                    SET url_factura = %s 
-                    WHERE id = %s
-                    """,
-                    (file_name, siniestro_id)
-                )
 
                 cur.execute(
                     """
