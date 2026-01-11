@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
                        "¡Guardado Correctamente!",
                        `<div class="text-center">
                            <p class="text-success fw-bold">${result.mensaje || 'Siniestro procesado'}</p>
-                           <p>El expediente de <strong>${data.cliente.nombre}</strong> ya está en la base de datos.</p>
+                           <p>El expediente de <strong>${data.cliente.nombre}</strong> ya ha sido registrado.</p>
                         </div>`,
                        "bg-success text-white"
                    );
@@ -204,4 +204,5 @@ document.addEventListener('DOMContentLoaded', () => {
        document.getElementById('modalHeader').className = "modal-header " + claseHeader;
        mainModal.show();
    }
+
 });
