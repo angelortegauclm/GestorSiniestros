@@ -1,5 +1,13 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const API_URL = "URL_DE_API_GATEWAY"; 
+document.addEventListener('DOMContentLoaded', async () => {
+    let API_URL = "";
+    try {
+        const configResponse = await fetch('config.json');
+        const configData = await configResponse.json();
+        API_URL = configData.API_URL;
+        console.log("Conectado a la API:", API_URL);
+    } catch (error) {
+        console.error("Error cargando configuración:", error);
+    }
 
    const form = document.getElementById('formRegistro');
    const btnBuscar = document.getElementById('btnBuscar');
@@ -22,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
            
            try {
                // LLAMADA FETCH POST
-               const response = await fetch(API_URL, {
+               const response = await fetch(`${API_URL}crear`, {
                    method: 'POST',
                    headers: {
                        'Content-Type': 'application/json'
@@ -62,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
        try {
            // LLAMADA FETCH GET (Enviamos el parámetro de búsqueda en la URL)
-           const response = await fetch(`${API_URL}?search=${encodeURIComponent(busqueda)}`);
+           const response = await fetch(`${API_URL}consultar?search=${encodeURIComponent(busqueda)}`);
            const data = await response.json();
 
            if (response.ok) {

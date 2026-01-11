@@ -77,8 +77,8 @@ def lambda_handler(event, context):
                         Bucket=BUCKET_NAME,
                         Key=file_name,
                         Body=f,
-                        ContentType='application/pdf',    # <--- ESTO permite la visualización
-                        ContentDisposition='inline'       # <--- ESTO sugiere abrir en el navegador
+                        ContentType='application/pdf',
+                        ContentDisposition='inline'
                     )
                 region = os.environ.get("AWS_REGION", "eu-west-1")
                 pdf_url = f"https://{BUCKET_NAME}.s3.{region}.amazonaws.com/{file_name}"
