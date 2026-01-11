@@ -1,0 +1,118 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Infraestructura base para backend
+
+Parameters:
+  DBUsername:
+    Type: String
+    Default: admingestor
+  DBPassword:
+    Type: String
+    Default: admingestor
+    NoEcho: true
+  MyPublicIP:
+    Type: String
+    Description: IP pública
+    AllowedPattern: "^([0-9]{1,3}\\.){3}[0-9]{1,3}$"
+    ConstraintDescription: Debe ser una IP válida (x.x.x.x)
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC donde se desplegarán los recursos
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet::Id
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet::Id
+
+Resources:
+  BackendSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "SecurityGroup para Lambdas y RDS"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: !Sub "${MyPublicIP}/32"
+
+  BackendSecurityGroupIngressSelf:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref BackendSecurityGroup
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      SourceSecurityGroupId: !Ref BackendSecurityGroup
+
+  BackendSecurityGroupHttpsIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref BackendSecurityGroup
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      CidrIp: 0.0.0.0/0
+
+  BackendDBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnets privadas para RDS
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+  BackendDB:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBName: backenddb
+      Engine: postgres
+      EngineVersion: "18.1"
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword: !Ref DBPassword
+      DBInstanceClass: db.t3.micro
+      AllocatedStorage: 20
+      PubliclyAccessible: true
+      DBSubnetGroupName: !Ref BackendDBSubnetGroup
+      VPCSecurityGroups:
+        - !Ref BackendSecurityGroup
+
+  Queue1:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: queue-1
+
+  Queue2:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: queue-2
+      VisibilityTimeout: 150
+      
+  SQSVPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VpcId
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.sqs"
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      SecurityGroupIds:
+        - !Ref BackendSecurityGroup
+
+Outputs:
+  DBEndpoint:
+    Description: "Endpoint de la base de datos"
+    Value: !GetAtt BackendDB.Endpoint.Address
+  DBPort:
+    Description: "Puerto de la base de datos"
+    Value: !GetAtt BackendDB.Endpoint.Port
+  Queue1URL:
+    Description: "URL de la cola 1"
+    Value: !Ref Queue1
+  Queue2URL:
+    Description: "URL de la cola 2"
+    Value: !Ref Queue2
+  SecurityGroupId:
+    Description: "Security Group para Lambdas"
+    Value: !Ref BackendSecurityGroup

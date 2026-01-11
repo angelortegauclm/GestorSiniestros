@@ -11,6 +11,8 @@ DB_HOST = os.environ.get('DB_HOST')
 DB_NAME = os.environ.get('DB_NAME')
 DB_USER = os.environ.get('DB_USER')
 DB_PASS = os.environ.get('DB_PASSWORD')
+DB_PORT = int(os.environ.get("DB_PORT"))
+DB_PORT = int(os.environ.get("DB_PORT"))
 
 def lambda_handler(event, context):
     print("--- INICIANDO GENERACIÓN DE FACTURA ---")
@@ -70,35 +72,44 @@ def lambda_handler(event, context):
             with NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
                 pdf.output(tmp.name)
                 file_name = f"factura_{siniestro_id}.pdf"
-                s3.upload_file(tmp.name, BUCKET_NAME, file_name)
-                
+                with open(tmp.name, 'rb') as f:
+                    s3.put_object(
+                        Bucket=BUCKET_NAME,
+                        Key=file_name,
+                        Body=f,
+                        ContentType='application/pdf',    # <--- ESTO permite la visualización
+                        ContentDisposition='inline'       # <--- ESTO sugiere abrir en el navegador
+                    )
+                region = os.environ.get("AWS_REGION", "eu-west-1")
+                pdf_url = f"https://{BUCKET_NAME}.s3.{region}.amazonaws.com/{file_name}"
             print(f"Documento {file_name} generado y subido a S3.")
 
-            '''
+            
             # 4. Actualización de base de datos
             try:
                 conn = psycopg2.connect(
                     host=DB_HOST, database=DB_NAME, 
-                    user=DB_USER, password=DB_PASS
+                    user=DB_USER, password=DB_PASS,
+                    port=DB_PORT
                 )
                 cur = conn.cursor()
-                
+
                 cur.execute(
                     """
-                    UPDATE siniestros 
-                    SET url_factura = %s 
-                    WHERE id = %s
+                    UPDATE siniestros
+                    SET url_documento = %s
+                    WHERE id_siniestro = %s
                     """,
-                    (file_name, siniestro_id)
+                    (pdf_url, siniestro_id)
                 )
-                
+
                 conn.commit()
                 cur.close()
                 conn.close()
                 print(f"DB actualizada para siniestro {siniestro_id}")
             except Exception as e:
                 print(f"Error DB: {str(e)}")
-            '''
+            
 
         except Exception as e:
             print(f"Error procesando el registro: {str(e)}")

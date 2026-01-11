@@ -1,0 +1,147 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Lambdas y API Gateway
+
+Parameters:
+  LabRoleArn:
+    Type: String
+    Default: arn:aws:iam::851725537191:role/LabRole
+  DBUsername:
+    Type: String
+  DBPassword:
+    Type: String
+  DBEndpoint:
+    Type: String
+  DBPort:
+    Type: Number
+  Queue1URL:
+    Type: String
+  Queue1ARN:
+    Type: String
+  Queue2URL:
+    Type: String
+  Queue2ARN:
+    Type: String
+  SecurityGroupId:
+    Type: String
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet::Id
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet::Id
+
+Resources:
+  ApiGatewayApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      Cors:
+        AllowMethods: "'GET,POST,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+
+  backendAPI:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: backendAPI
+      Runtime: python3.11
+      Handler: lambda1.lambda_handler
+      CodeUri: ../src/backend/API
+      Role: !Ref LabRoleArn
+      Timeout: 30
+      MemorySize: 512
+      Environment:
+        Variables:
+          QUEUE_URL: !Ref Queue1URL
+          DB_HOST: !Ref DBEndpoint
+          DB_PORT: !Ref DBPort
+          DB_NAME: postgres
+          DB_USER: !Ref DBUsername
+          DB_PASSWORD: !Ref DBPassword
+      Events:
+        CrearPost:
+          Type: Api
+          Properties:
+            Path: /crear
+            Method: post
+            RestApiId: !Ref ApiGatewayApi
+        ConsultarGet:
+          Type: Api
+          Properties:
+            Path: /consultar
+            Method: get
+            RestApiId: !Ref ApiGatewayApi
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref SecurityGroupId
+        SubnetIds:
+          - !Ref PrivateSubnet1
+          - !Ref PrivateSubnet2
+
+  BackendCalculos:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: BackendCalculos
+      Runtime: python3.11
+      Handler: lambda2.lambda_handler
+      CodeUri: ../src/backend/Calculos
+      Timeout: 30
+      MemorySize: 512
+      Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !Ref Queue2URL
+      Environment:
+        Variables:
+          DB_HOST: !Ref DBEndpoint
+          DB_PORT: !Ref DBPort
+          DB_NAME: postgres
+          DB_USER: !Ref DBUsername
+          DB_PASSWORD: !Ref DBPassword
+          QUEUE_1_URL: !Ref Queue1URL
+          QUEUE_2_URL: !Ref Queue2URL
+      Role: !Ref LabRoleArn
+      Events:
+        QueueTrigger:
+          Type: SQS
+          Properties:
+            Queue: !Ref Queue1ARN
+            BatchSize: 1
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref SecurityGroupId
+        SubnetIds:
+          - !Ref PrivateSubnet1
+          - !Ref PrivateSubnet2
+
+  BackendGeneracionDocumentos:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: BackendDocumentos
+      Runtime: python3.11
+      Handler: lambda3.lambda_handler
+      CodeUri: ../src/backend/Documentos
+      Timeout: 120
+      MemorySize: 1024
+      Role: !Ref LabRoleArn
+      Environment:
+        Variables:
+          BUCKET_NAME: !Sub "facturas-gestorsiniestros-${AWS::AccountId}"
+          DB_HOST: !Ref DBEndpoint
+          DB_PORT: !Ref DBPort
+          DB_NAME: postgres
+          DB_USER: !Ref DBUsername
+          DB_PASSWORD: !Ref DBPassword
+          QUEUE_2_URL: !Ref Queue2URL
+      Policies:
+        - S3WritePolicy:
+            BucketName: !Sub "facturas-gestorsiniestros-${AWS::AccountId}"
+      Events:
+        QueueTrigger:
+          Type: SQS
+          Properties:
+            Queue: !Ref Queue2ARN
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref SecurityGroupId
+        SubnetIds:
+          - !Ref PrivateSubnet1
+          - !Ref PrivateSubnet2
